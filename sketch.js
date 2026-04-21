@@ -1,11 +1,15 @@
 let population;
-let lifetime = 1800; // 30 sec à 60FPS
+let lifetime = 1800; // Condition d'arrêt de 30 sec
 let recordTime = 0;
+
+let nnTopology = null;
 
 let genCountSpan;
 let recordTimeSpan;
 let recordFramesSpan;
 let victoryMsg;
+
+let inputsSelect, neuronsSlider, neuronsVal, actSelect;
 let popSlider, popVal;
 let mutationSlider, mutationVal;
 let resetBtn;
@@ -19,12 +23,18 @@ function setup() {
   recordFramesSpan = document.getElementById('record-frames');
   victoryMsg = document.getElementById('victory-msg');
   
+  inputsSelect = document.getElementById('inputs-select');
+  neuronsSlider = document.getElementById('neurons-slider');
+  neuronsVal = document.getElementById('neurons-val');
+  actSelect = document.getElementById('activation-select');
+  
   popSlider = document.getElementById('pop-slider');
   popVal = document.getElementById('pop-val');
   mutationSlider = document.getElementById('mutation-slider');
   mutationVal = document.getElementById('mutation-val');
   resetBtn = document.getElementById('reset-btn');
 
+  neuronsSlider.oninput = () => neuronsVal.innerText = neuronsSlider.value;
   popSlider.oninput = () => popVal.innerText = popSlider.value;
   mutationSlider.oninput = () => mutationVal.innerText = mutationSlider.value;
   resetBtn.onclick = initSimulation;
@@ -36,10 +46,20 @@ function initSimulation() {
   recordTime = 0;
   victoryMsg.style.display = 'none';
 
+  let numInputs = parseInt(inputsSelect.value);
+  let numHiddens = parseInt(neuronsSlider.value);
+  let activationType = actSelect.value;
+  
+  nnTopology = {
+    inputs: numInputs,
+    hidden: numHiddens,
+    activation: activationType
+  };
+
   let popSize = parseInt(popSlider.value);
   let mutationRate = parseFloat(mutationSlider.value);
   
-  population = new Population(popSize, mutationRate);
+  population = new Population(popSize, nnTopology, mutationRate);
 }
 
 function draw() {
@@ -52,7 +72,7 @@ function draw() {
 
   if (!population) return;
 
-  // Accélération de la simulation avec une boucle for, ex factor = 3
+  // Accélération x3 pour l'entraînement
   for (let s = 0; s < 3; s++) {
     let anyAlive = population.update();
     
@@ -72,7 +92,6 @@ function draw() {
     }
   }
 
-  // Affichage (3 fois plus rapide pour nous)
   population.show();
 
   genCountSpan.innerText = population.generation;

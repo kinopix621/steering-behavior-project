@@ -1,7 +1,7 @@
 class Match {
-  constructor(leftDNA, rightDNA) {
-    this.leftPaddle = new Paddle(true, leftDNA);
-    this.rightPaddle = new Paddle(false, rightDNA);
+  constructor(nnTopology, leftDNA, rightDNA) {
+    this.leftPaddle = new Paddle(true, nnTopology, leftDNA);
+    this.rightPaddle = new Paddle(false, nnTopology, rightDNA);
     this.ball = new Ball(width / 2, height / 2);
     
     this.alive = true;
@@ -11,10 +11,10 @@ class Match {
   update() {
     if (!this.alive) return;
 
-    this.leftPaddle.update();
-    this.rightPaddle.update();
+    this.leftPaddle.predict(this.ball);
+    this.rightPaddle.predict(this.ball);
+
     this.ball.update();
-    
     this.framesSurvived++;
 
     // Vérification collision gauche
@@ -37,7 +37,7 @@ class Match {
       this.rightPaddle.score++;
     }
 
-    // La mort.
+    // Victoire ou balle qui sort
     if (this.ball.isOut() || this.framesSurvived >= lifetime) {
       this.alive = false;
       this.calculateFitnesses();
@@ -45,8 +45,6 @@ class Match {
   }
 
   calculateFitnesses() {
-    // Calcul de la distance entre la balle finale et la raquette
-    // L'IA est aveugle, donc frôler la balle est encourageant !
     let leftDist = constrain(abs(this.ball.y - this.leftPaddle.y), 1, height);
     let rightDist = constrain(abs(this.ball.y - this.rightPaddle.y), 1, height);
 

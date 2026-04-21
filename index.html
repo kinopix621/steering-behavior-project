@@ -2,22 +2,44 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Pong - Algo Génétique Pur</title>
+  <title>Pong - Réseau de Neurones Vanilla</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
   <link rel="stylesheet" type="text/css" href="style.css" />
 </head>
 <body>
-  <h1>Pong - Algorithme Génétique "Aveugle"</h1>
+  <h1>Pong - Capteurs & Neuro-Évolution</h1>
   
   <div class="controls">
     <div class="control-group">
-      <label>Taille de Population:</label>
-      <input type="range" id="pop-slider" min="10" max="200" step="10" value="50" />
-      <span id="pop-val">50</span> matchs
+      <label>Inputs (Capteurs):</label>
+      <select id="inputs-select">
+        <option value="3">3 (Balle Y, Raquette Y, Balle X)</option>
+        <option value="5" selected>5 (+ Vitesses Balle Vx, Vy)</option>
+      </select>
     </div>
 
     <div class="control-group">
-      <label>Taux de Mutation:</label>
+      <label>Neurones Cachets:</label>
+      <input type="range" id="neurons-slider" min="4" max="32" step="4" value="16" />
+      <span id="neurons-val">16</span>
+    </div>
+
+    <div class="control-group">
+      <label>Fonction d'Activation:</label>
+      <select id="activation-select">
+        <option value="relu">ReLU</option>
+        <option value="sigmoid" selected>Sigmoid</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Population:</label>
+      <input type="range" id="pop-slider" min="10" max="200" step="10" value="50" />
+      <span id="pop-val">50</span>
+    </div>
+
+    <div class="control-group">
+      <label>Mutation:</label>
       <input type="range" id="mutation-slider" min="0.01" max="0.30" step="0.01" value="0.05" />
       <span id="mutation-val">0.05</span>
     </div>
@@ -33,6 +55,8 @@
     <p id="victory-msg" style="display: none; color: lime;">Victoire absolue !</p>
   </div>
 
+  <script src="matrix.js"></script>
+  <script src="nn.js"></script>
   <script src="dna.js"></script>
   <script src="ball.js"></script>
   <script src="paddle.js"></script>

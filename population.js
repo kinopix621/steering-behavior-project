@@ -1,12 +1,13 @@
 class Population {
-  constructor(size, mutationRate) {
+  constructor(size, nnTopology, mutationRate) {
     this.size = size;
+    this.nnTopology = nnTopology;
     this.mutationRate = mutationRate;
     this.matches = [];
     this.generation = 1;
 
     for (let i = 0; i < this.size; i++) {
-        this.matches.push(new Match(null, null));
+        this.matches.push(new Match(this.nnTopology, null, null));
     }
   }
 
@@ -36,18 +37,12 @@ class Population {
       paddles.push(this.matches[i].rightPaddle);
     }
 
-    // Normalisation de la fitness et préparation à la reproduction
     let maxFit = 0;
     for (let p of paddles) {
-      if (p.fitness > maxFit) {
-        maxFit = p.fitness;
-      }
+      if (p.fitness > maxFit) maxFit = p.fitness;
     }
 
-    // Pour éviter de croiser du vent, on normalise (0 -> 1)
     for (let p of paddles) {
-      // Rend exponentiel pour décupler les chances des meilleurs
-      // Typique de 10-missiles : this.fitness = pow(this.fitness, 4)
       p.fitness /= maxFit;
       p.fitness = pow(p.fitness, 4);
     }
@@ -61,10 +56,9 @@ class Population {
     }
 
     let newMatches = [];
-    // Si la mating pool est vide (cas très rares), on recommence from scratch
     if (matingPool.length === 0) {
       for (let i = 0; i < this.size; i++) {
-        newMatches.push(new Match(null, null));
+        newMatches.push(new Match(this.nnTopology, null, null));
       }
     } else {
       for (let i = 0; i < this.size; i++) {
@@ -78,7 +72,7 @@ class Population {
         let childRightDNA = parentC.crossover(parentD);
         childRightDNA.mutate(this.mutationRate);
 
-        newMatches.push(new Match(childLeftDNA, childRightDNA));
+        newMatches.push(new Match(this.nnTopology, childLeftDNA, childRightDNA));
       }
     }
 
