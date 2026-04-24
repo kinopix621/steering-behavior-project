@@ -1,13 +1,14 @@
 class Population {
-  constructor(size, nnTopology, mutationRate) {
+  constructor(size, nnTopology, mutationRate, gameConfig) {
     this.size = size;
     this.nnTopology = nnTopology;
     this.mutationRate = mutationRate;
+    this.gameConfig = gameConfig;
     this.matches = [];
     this.generation = 1;
 
     for (let i = 0; i < this.size; i++) {
-        this.matches.push(new Match(this.nnTopology, null, null));
+        this.matches.push(new Match(this.nnTopology, null, null, this.gameConfig));
     }
   }
 
@@ -58,7 +59,7 @@ class Population {
     let newMatches = [];
     if (matingPool.length === 0) {
       for (let i = 0; i < this.size; i++) {
-        newMatches.push(new Match(this.nnTopology, null, null));
+        newMatches.push(new Match(this.nnTopology, null, null, this.gameConfig));
       }
     } else {
       for (let i = 0; i < this.size; i++) {
@@ -72,7 +73,7 @@ class Population {
         let childRightDNA = parentC.crossover(parentD);
         childRightDNA.mutate(this.mutationRate);
 
-        newMatches.push(new Match(this.nnTopology, childLeftDNA, childRightDNA));
+        newMatches.push(new Match(this.nnTopology, childLeftDNA, childRightDNA, this.gameConfig));
       }
     }
 
@@ -86,5 +87,15 @@ class Population {
       if (m.framesSurvived > maxT) maxT = m.framesSurvived;
     }
     return maxT;
+  }
+
+  /** Fraction des matchs dont la survie (frames) a atteint au moins le seuil (vivants ou dernier épisode). */
+  fractionWithSurvivalAtLeast(thresholdFrames) {
+    if (this.matches.length === 0) return 0;
+    let ok = 0;
+    for (let m of this.matches) {
+      if (m.framesSurvived >= thresholdFrames) ok++;
+    }
+    return ok / this.matches.length;
   }
 }

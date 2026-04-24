@@ -2,73 +2,190 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Pong - Réseau de Neurones Vanilla</title>
+  <title>Pong</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
   <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
-  <link rel="stylesheet" type="text/css" href="style.css" />
+  <link rel="stylesheet" type="text/css" href="css/style.css" />
 </head>
 <body>
-  <h1>Pong - Capteurs & Neuro-Évolution</h1>
-  
-  <div class="controls">
-    <div class="control-group">
-      <label>Inputs (Capteurs):</label>
-      <select id="inputs-select">
-        <option value="3">3 (Balle Y, Raquette Y, Balle X)</option>
-        <option value="5" selected>5 (+ Vitesses Balle Vx, Vy)</option>
-      </select>
+  <header class="app-header">
+    <div class="app-header__text">
+      <h1 class="app-title">Pong</h1>
     </div>
+  </header>
 
-    <div class="control-group">
-      <label>Neurones Cachets:</label>
-      <input type="range" id="neurons-slider" min="4" max="32" step="4" value="16" />
-      <span id="neurons-val">16</span>
-    </div>
+  <div class="app-layout">
+    <aside class="control-panel" aria-label="Paramètres de simulation">
+      <details class="ctrl-section" open>
+        <summary class="ctrl-section__title">Circuit</summary>
+        <div class="ctrl-section__body">
+          <div class="field">
+            <label class="field__label" for="preset-select">Preset</label>
+            <select id="preset-select" class="field__input">
+              <option value="easy">Facile</option>
+              <option value="medium" selected>Moyen</option>
+              <option value="hard">Difficile</option>
+              <option value="custom">Personnalisé (JSON)</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button type="button" id="export-preset-btn" class="btn btn--secondary">Exporter le circuit</button>
+            <button type="button" id="import-preset-btn" class="btn btn--secondary">Importer…</button>
+            <input type="file" id="preset-file-input" class="visually-hidden" accept=".json">
+          </div>
+        </div>
+      </details>
 
-    <div class="control-group">
-      <label>Fonction d'Activation:</label>
-      <select id="activation-select">
-        <option value="relu">ReLU</option>
-        <option value="sigmoid" selected>Sigmoid</option>
-      </select>
-    </div>
+      <details class="ctrl-section" open>
+        <summary class="ctrl-section__title">Curriculum (A → B)</summary>
+        <div class="ctrl-section__body">
+          <label class="check">
+            <input type="checkbox" id="curriculum-auto" />
+            <span>Activer le passage automatique entre deux circuits</span>
+          </label>
+          <div class="field field--inline">
+            <label class="field__label" for="curriculum-select-a">Départ (A)</label>
+            <select id="curriculum-select-a" class="field__input">
+              <option value="easy" selected>Facile</option>
+              <option value="medium">Moyen</option>
+              <option value="hard">Difficile</option>
+            </select>
+          </div>
+          <div class="field field--inline">
+            <label class="field__label" for="curriculum-select-b">Cible (B)</label>
+            <select id="curriculum-select-b" class="field__input">
+              <option value="easy">Facile</option>
+              <option value="medium">Moyen</option>
+              <option value="hard" selected>Difficile</option>
+            </select>
+          </div>
+          <p id="curriculum-phase-label" class="phase-badge" style="display:none;"></p>
+        </div>
+      </details>
 
-    <div class="control-group">
-      <label>Population:</label>
-      <input type="range" id="pop-slider" min="10" max="200" step="10" value="50" />
-      <span id="pop-val">50</span>
-    </div>
+      <details class="ctrl-section" open>
+        <summary class="ctrl-section__title">Réseau de neurones</summary>
+        <div class="ctrl-section__body">
+          <div class="field">
+            <label class="field__label" for="inputs-select">Entrées (capteurs)</label>
+            <select id="inputs-select" class="field__input">
+              <option value="3">3 — Balle Y, raquette Y, balle X</option>
+              <option value="5" selected>5 — + vitesses Vx, Vy</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="hidden-layers-slider">Couches cachées : <span id="hidden-layers-val" class="field__value">1</span></label>
+            <input type="range" id="hidden-layers-slider" class="range" min="1" max="3" step="1" value="1" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="neurons-slider">Neurones / couche : <span id="neurons-val" class="field__value">16</span></label>
+            <input type="range" id="neurons-slider" class="range" min="4" max="32" step="4" value="16" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="activation-select">Activation</label>
+            <select id="activation-select" class="field__input">
+              <option value="relu">ReLU</option>
+              <option value="sigmoid" selected>Sigmoid</option>
+            </select>
+          </div>
+        </div>
+      </details>
 
-    <div class="control-group">
-      <label>Mutation:</label>
-      <input type="range" id="mutation-slider" min="0.01" max="0.30" step="0.01" value="0.05" />
-      <span id="mutation-val">0.05</span>
-    </div>
+      <details class="ctrl-section" open>
+        <summary class="ctrl-section__title">Évolution & arrêt</summary>
+        <div class="ctrl-section__body">
+          <div class="field">
+            <label class="field__label" for="pop-slider">Population : <span id="pop-val" class="field__value">50</span></label>
+            <input type="range" id="pop-slider" class="range" min="10" max="200" step="10" value="50" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="mutation-slider">Mutation : <span id="mutation-val" class="field__value">0.05</span></label>
+            <input type="range" id="mutation-slider" class="range" min="0.01" max="0.30" step="0.01" value="0.05" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="hybrid-nn-slider">Poids du NN (1 = pur réseau) : <span id="hybrid-nn-val" class="field__value">1.00</span></label>
+            <input type="range" id="hybrid-nn-slider" class="range" min="0" max="1" step="0.05" value="1" />
+          </div>
+          <label class="check">
+            <input type="checkbox" id="pop-stop-enabled" checked />
+            <span>Arrêt population (seuil + proportion)</span>
+          </label>
+          <div class="field">
+            <label class="field__label" for="pop-stop-threshold">Survie ≥ <span id="pop-stop-threshold-val" class="field__value">1200</span> frames</label>
+            <input type="range" id="pop-stop-threshold" class="range" min="60" max="3600" step="60" value="1200" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="pop-stop-proportion">Proportion : <span id="pop-stop-prop-val" class="field__value">0.60</span></label>
+            <input type="range" id="pop-stop-proportion" class="range" min="0.10" max="1" step="0.05" value="0.60" />
+          </div>
+        </div>
+      </details>
 
-    <div class="control-group">
-      <button id="reset-btn">Relancer l'Entraînement</button>
-      <button id="export-btn">Exporter le Modèle</button>
-      <button id="import-btn" onclick="document.getElementById('file-input').click()">Importer un Modèle</button>
-      <input type="file" id="file-input" style="display:none;" accept=".json">
-      <button id="duel-btn" style="background-color: #ff5e5e;">Lancer le Mode Duel (Webcam)</button>
-    </div>
+      <details class="ctrl-section">
+        <summary class="ctrl-section__title">Obstacles</summary>
+        <div class="ctrl-section__body">
+          <label class="check">
+            <input type="checkbox" id="obstacle-place-check" />
+            <span>Mode placement (clic sur le terrain ; Shift+clic = supprimer le plus proche)</span>
+          </label>
+          <button type="button" id="clear-obstacles-btn" class="btn btn--secondary btn--block">Effacer tous les obstacles</button>
+        </div>
+      </details>
+
+      <details class="ctrl-section" open>
+        <summary class="ctrl-section__title">Fichiers & duel</summary>
+        <div class="ctrl-section__body">
+          <div class="btn-stack">
+            <button type="button" id="reset-btn" class="btn btn--primary">Relancer l'entraînement</button>
+            <button type="button" id="export-btn" class="btn btn--secondary">Exporter le cerveau</button>
+            <button type="button" id="export-bundle-btn" class="btn btn--secondary">Exporter circuit + cerveau</button>
+            <button type="button" id="import-btn" class="btn btn--secondary" onclick="document.getElementById('file-input').click()">Importer cerveau / bundle…</button>
+            <input type="file" id="file-input" class="visually-hidden" accept=".json">
+            <button type="button" id="duel-btn" class="btn btn--danger">Mode duel (webcam)</button>
+          </div>
+        </div>
+      </details>
+    </aside>
+
+    <main class="stage">
+      <div id="canvas-container" class="canvas-shell"></div>
+
+      <section id="stats" class="stats-bar" aria-live="polite">
+        <div class="stats-bar__item"><span class="stats-bar__k">Génération</span> <span id="gen-count" class="stats-bar__v">0</span></div>
+        <div class="stats-bar__item"><span class="stats-bar__k">Meilleur survie (gen)</span> <span id="record-time" class="stats-bar__v">0</span> s <span class="stats-bar__muted">(<span id="record-frames">0</span> f)</span></div>
+        <p id="victory-msg" class="stats-bar__victory" style="display: none;"></p>
+      </section>
+
+      <details id="tournament-panel" class="ctrl-section ctrl-section--embed">
+        <summary class="ctrl-section__title">Tournoi multi-cerveaux</summary>
+        <div class="ctrl-section__body">
+          <p class="hint">Circuit actuel : <strong id="tournament-circuit-hint">—</strong></p>
+          <p class="hint hint--small">Chaque cerveau joue à gauche contre une baseline à droite. Classement : survie moyenne, puis touches moyennes.</p>
+          <div class="tournament-toolbar">
+            <label class="field field--compact">
+              <span class="field__label">Parties / cerveau</span>
+              <input type="number" id="tournament-episodes" class="field__input field__input--num" min="1" max="30" value="3" />
+            </label>
+            <button type="button" id="tournament-add-btn" class="btn btn--secondary">Ajouter des JSON…</button>
+            <input type="file" id="tournament-file-input" class="visually-hidden" multiple accept=".json">
+            <button type="button" id="tournament-clear-btn" class="btn btn--ghost">Vider</button>
+            <button type="button" id="tournament-run-btn" class="btn btn--primary">Lancer le tournoi</button>
+          </div>
+          <ul id="tournament-list" class="tournament-list"></ul>
+          <div id="tournament-results" class="tournament-results"></div>
+        </div>
+      </details>
+    </main>
   </div>
-  
-  <div id="canvas-container"></div>
-  
-  <div id="stats">
-    <p>Génération: <span id="gen-count">0</span></p>
-    <p>Meilleur Survie de Gen: <span id="record-time">0</span> sec (<span id="record-frames">0</span> frames)</p>
-    <p id="victory-msg" style="display: none; color: lime;">Victoire absolue !</p>
-  </div>
 
-  <script src="matrix.js"></script>
-  <script src="nn.js"></script>
-  <script src="dna.js"></script>
-  <script src="ball.js"></script>
-  <script src="paddle.js"></script>
-  <script src="population.js"></script>
-  <script src="match.js"></script>
-  <script src="sketch.js"></script>
+  <script src="js/matrix.js"></script>
+  <script src="js/nn.js"></script>
+  <script src="js/dna.js"></script>
+  <script src="js/gameConfig.js"></script>
+  <script src="js/ball.js"></script>
+  <script src="js/paddle.js"></script>
+  <script src="js/population.js"></script>
+  <script src="js/match.js"></script>
+  <script src="js/sketch.js"></script>
 </body>
 </html>

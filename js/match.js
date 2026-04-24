@@ -1,8 +1,16 @@
 class Match {
-  constructor(nnTopology, leftDNA, rightDNA) {
-    this.leftPaddle = new Paddle(true, nnTopology, leftDNA);
-    this.rightPaddle = new Paddle(false, nnTopology, rightDNA);
-    this.ball = new Ball(width / 2, height / 2);
+  constructor(nnTopology, leftDNA, rightDNA, gameConfig, matchOpts) {
+    matchOpts = matchOpts || {};
+    this.gameConfig = gameConfig;
+    this.leftPaddle = new Paddle(true, nnTopology, leftDNA, gameConfig);
+    if (matchOpts.rightBaselineTrack) {
+      this.rightPaddle = new Paddle(false, nnTopology, null, gameConfig, {
+        controlMode: 'track_ball'
+      });
+    } else {
+      this.rightPaddle = new Paddle(false, nnTopology, rightDNA, gameConfig);
+    }
+    this.ball = new Ball(width / 2, height / 2, gameConfig);
     
     this.alive = true;
     this.framesSurvived = 0;
@@ -14,7 +22,7 @@ class Match {
     this.leftPaddle.predict(this.ball);
     this.rightPaddle.predict(this.ball);
 
-    this.ball.update();
+    this.ball.update(this.gameConfig.obstacles || []);
     this.framesSurvived++;
 
     // Vérification collision gauche
@@ -44,7 +52,7 @@ class Match {
     }
 
     // Victoire ou balle qui sort
-    if (this.ball.isOut() || this.framesSurvived >= lifetime) {
+    if (this.ball.isOut() || this.framesSurvived >= this.gameConfig.lifetime) {
       this.alive = false;
       this.calculateFitnesses();
     }
