@@ -21,6 +21,10 @@ let duelMatch = null;
 let video, handPose, hands = [];
 let handY = 200;
 
+let duelScoreAI = 0;
+let duelScoreHuman = 0;
+let duelState = 'WAITING';
+
 function setup() {
   let canvas = createCanvas(800, 400);
   canvas.parent('canvas-container');
@@ -90,17 +94,96 @@ function draw() {
   noStroke();
 
   if (duelMode && duelMatch) {
+    // Apercu webcam en coin haut-gauche (miroir)
+    if (video) {
+      push();
+      translate(164, 84);
+      scale(-1, 1);
+      image(video, -160, 0, 160, 80);
+      pop();
+      stroke(255, 80);
+      noFill();
+      rect(4, 4, 160, 80);
+      noStroke();
+    }
+
+    // Contrôle main -> raquette droite
     if (hands.length > 0) {
       let y = hands[0].index_finger_tip.y;
       handY = map(y, 0, 240, 0, height);
+      handY = constrain(handY, duelMatch.rightPaddle.h / 2, height - duelMatch.rightPaddle.h / 2);
     }
-    
     duelMatch.rightPaddle.y = handY;
-    duelMatch.update();
-    duelMatch.show();
-    
-    if (duelMatch.ball.isOut()) {
-      duelMatch.ball.reset();
+
+    if (duelState === 'PLAYING') {
+      // IA controle sa raquette
+      duelMatch.leftPaddle.predict(duelMatch.ball);
+
+      // Deplacement balle + rebonds murs
+      duelMatch.ball.update();
+
+      let lp = duelMatch.leftPaddle;
+      let rp = duelMatch.rightPaddle;
+      let b  = duelMatch.ball;
+
+      // Collision raquette gauche
+      if (b.x - b.r < lp.x + lp.w / 2 &&
+          b.y > lp.y - lp.h / 2 &&
+          b.y < lp.y + lp.h / 2) {
+        let diff = b.y - lp.y;
+        let angle = map(diff, -lp.h / 2, lp.h / 2, -PI / 4, PI / 4);
+        b.vx = b.speed * cos(angle);
+        b.vy = b.speed * sin(angle);
+        b.x = lp.x + lp.w / 2 + b.r;
+      }
+
+      // Collision raquette droite
+      if (b.x + b.r > rp.x - rp.w / 2 &&
+          b.y > rp.y - rp.h / 2 &&
+          b.y < rp.y + rp.h / 2) {
+        let diff = b.y - rp.y;
+        let angle = map(diff, -rp.h / 2, rp.h / 2, -PI / 4, PI / 4);
+        b.vx = -b.speed * cos(angle);
+        b.vy = b.speed * sin(angle);
+        b.x = rp.x - rp.w / 2 - b.r;
+      }
+
+      // Point marque
+      if (b.x < 0) {
+        duelScoreHuman++;
+        duelState = 'WAITING';
+      } else if (b.x > width) {
+        duelScoreAI++;
+        duelState = 'WAITING';
+      }
+    } else {
+      // En attente : l'IA garde sa position, balle figee
+      duelMatch.leftPaddle.predict(duelMatch.ball);
+    }
+
+    // Affichage raquettes et balle (toujours visible, independant de alive)
+    stroke(255, 60);
+    noFill();
+    duelMatch.leftPaddle.show();
+    duelMatch.rightPaddle.show();
+    if (duelState === 'PLAYING') duelMatch.ball.show();
+
+    // Scores
+    noStroke();
+    fill(255);
+    textSize(48);
+    textAlign(CENTER, CENTER);
+    text(duelScoreAI, width / 4, 50);
+    text(duelScoreHuman, 3 * width / 4, 50);
+    textSize(14);
+    fill(180);
+    text("IA", width / 4, 95);
+    text("Vous", 3 * width / 4, 95);
+
+    if (duelState === 'WAITING') {
+      fill(255, 220, 0);
+      textSize(20);
+      text("Appuyez sur ESPACE pour lancer la balle", width / 2, height / 2);
     }
     return;
   }
@@ -188,6 +271,10 @@ function toggleDuelMode() {
     duelMatch = new Match(nnTopology, dnaToUse, null);
     duelMatch.rightPaddle.isHuman = true; // Droite = Humain
     
+    duelScoreAI = 0;
+    duelScoreHuman = 0;
+    duelState = 'WAITING';
+    
     if (!video) {
       video = createCapture(VIDEO);
       video.size(320, 240);
@@ -204,6 +291,19 @@ function toggleDuelMode() {
     loop();
   } else {
     duelBtn.innerText = "Lancer le Mode Duel (Webcam)";
+    duelBtn.innerText = "Lancer le Mode Duel (Webcam)";
     initSimulation();
+  }
+}
+
+function keyPressed() {
+  if (duelMode && duelState === 'WAITING' && key === ' ') {
+    duelMatch.ball.reset();
+    // La balle doit aller 2x plus vite en duel car l'entraînement
+    // tourne à 3x la vitesse (for s < 3). On recalcule vx/vy.
+    duelMatch.ball.speed = 12;
+    duelMatch.ball.vx *= 2;
+    duelMatch.ball.vy *= 2;
+    duelState = 'PLAYING';
   }
 }
