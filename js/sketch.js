@@ -1,3 +1,24 @@
+import {
+  normalizeNnTopology,
+  expectedGeneCount,
+  buildNnTopologyFromUi,
+  applyNnTopologyToUi,
+  getActiveGameConfig,
+  getCurriculumConfigForPhase,
+  getCircuitConfigForExport,
+  updateCurriculumUi,
+  parsePresetPayload,
+  getBestDNA,
+  updateTournamentCircuitHint,
+  renderTournamentList,
+  renderTournamentResults,
+  parseTournamentBrainEntry,
+  runTournamentSimulation
+} from './functions.js';
+import { cloneGameConfig, normalizeImportedGameConfig, gameConfigsEqual, getBuiltinPreset } from './gameConfig.js';
+
+const gameConfigApi = { cloneGameConfig, getBuiltinPreset };
+
 let population;
 let recordTime = 0;
 
@@ -55,128 +76,28 @@ let hybridNnVal;
 /** Si true, le prochain initSimulation ne reprend pas les obstacles du circuit précédent. */
 window.__skipObsPreserve = false;
 
-function normalizeNnTopology(topo) {
-  if (!topo || typeof topo !== 'object') {
-    return { inputs: 5, hiddenSizes: [16], activation: 'sigmoid', hybridNnWeight: 1 };
-  }
-  let inputs = parseInt(topo.inputs, 10);
-  if (inputs !== 3 && inputs !== 5) inputs = 5;
-  let activation = topo.activation === 'relu' ? 'relu' : 'sigmoid';
-  let hybridNnWeight = 1;
-  if (topo.hybridNnWeight != null && Number.isFinite(Number(topo.hybridNnWeight))) {
-    hybridNnWeight = constrain(Number(topo.hybridNnWeight), 0, 1);
-  }
-  let hiddenSizes;
-  if (Array.isArray(topo.hiddenSizes) && topo.hiddenSizes.length > 0) {
-    hiddenSizes = topo.hiddenSizes.map((n) => {
-      let v = parseInt(n, 10);
-      if (!Number.isFinite(v) || v < 4) v = 8;
-      return Math.min(128, v);
-    });
-    if (!hiddenSizes.every((h) => h === hiddenSizes[0])) return null;
-  } else if (topo.hidden != null) {
-    let h = parseInt(topo.hidden, 10) || 16;
-    hiddenSizes = [Math.min(128, Math.max(4, h))];
-  } else {
-    hiddenSizes = [16];
-  }
-  return { inputs, hiddenSizes, activation, hybridNnWeight };
-}
-
-function expectedGeneCount(topo) {
-  let t = normalizeNnTopology(topo);
-  if (t == null) return 0;
-  let n = 0;
-  let prev = t.inputs;
-  for (let h of t.hiddenSizes) {
-    n += h * prev + h;
-    prev = h;
-  }
-  n += 3 * prev + 3;
-  return n;
-}
-
-function buildNnTopologyFromUi() {
-  let nLayers = parseInt(hiddenLayersSlider.value, 10);
-  let nPer = parseInt(neuronsSlider.value, 10);
-  let hiddenSizes = [];
-  for (let i = 0; i < nLayers; i++) hiddenSizes.push(nPer);
-  let hybridNnWeight = 1;
-  if (hybridNnSlider) {
-    hybridNnWeight = parseFloat(hybridNnSlider.value);
-    if (!Number.isFinite(hybridNnWeight)) hybridNnWeight = 1;
-    hybridNnWeight = constrain(hybridNnWeight, 0, 1);
-  }
+function nnUiRefs() {
   return {
-    inputs: parseInt(inputsSelect.value),
-    hiddenSizes,
-    hidden: nPer,
-    activation: actSelect.value,
-    hybridNnWeight
+    inputsSelect,
+    hiddenLayersSlider,
+    neuronsSlider,
+    neuronsVal,
+    hiddenLayersVal,
+    actSelect,
+    hybridNnSlider,
+    hybridNnVal
   };
 }
 
-function getActiveGameConfig() {
-  let sel = presetSelect.value;
-  if (sel === 'custom') {
-    if (customGameConfig) return cloneGameConfig(customGameConfig);
-    return getBuiltinPreset('medium');
-  }
-  return getBuiltinPreset(sel);
-}
-
-function getCurriculumConfigForPhase(phase) {
-  let sel = phase === 'A' ? curriculumSelectA.value : curriculumSelectB.value;
-  return getBuiltinPreset(sel);
-}
-
-/** Circuit actuel pour export (entraînement curriculum = phase en cours). */
-function getCircuitConfigForExport() {
-  if (currentGameConfig) return cloneGameConfig(currentGameConfig);
-  return cloneGameConfig(getActiveGameConfig());
-}
-
-function updateCurriculumUi() {
-  if (!curriculumAutoCheckbox || !presetSelect) return;
-  let on = curriculumAutoCheckbox.checked;
-  presetSelect.disabled = on;
-  if (curriculumPhaseLabel) {
-    curriculumPhaseLabel.style.display = on ? 'block' : 'none';
-    if (on) {
-      let aName = curriculumSelectA.options[curriculumSelectA.selectedIndex].text;
-      let bName = curriculumSelectB.options[curriculumSelectB.selectedIndex].text;
-      curriculumPhaseLabel.textContent =
-        curriculumPhase === 'A'
-          ? 'Phase A (départ) — ' + aName
-          : 'Phase B (cible) — ' + bName;
-    }
-  }
-}
-
-function applyNnTopologyToUi(topo) {
-  if (!topo) return;
-  let t = normalizeNnTopology(topo);
-  if (t == null) return;
-  if (t.inputs != null) inputsSelect.value = String(t.inputs);
-  if (t.hiddenSizes.length > 0) {
-    let first = t.hiddenSizes[0];
-    neuronsSlider.value = String(first);
-    neuronsVal.innerText = String(first);
-    hiddenLayersSlider.value = String(t.hiddenSizes.length);
-    hiddenLayersVal.innerText = String(t.hiddenSizes.length);
-  }
-  if (t.activation) actSelect.value = t.activation;
-  if (t.hybridNnWeight != null && hybridNnSlider) {
-    hybridNnSlider.value = String(constrain(t.hybridNnWeight, 0, 1));
-    if (hybridNnVal) hybridNnVal.innerText = parseFloat(hybridNnSlider.value).toFixed(2);
-  }
-}
-
-function parsePresetPayload(parsed) {
-  if (!parsed || typeof parsed !== 'object') return null;
-  if (parsed.kind === 'pong_neuro_preset') return normalizeImportedGameConfig(parsed);
-  if (parsed.gameConfig) return normalizeImportedGameConfig(parsed.gameConfig);
-  return normalizeImportedGameConfig(parsed);
+function curriculumUiRefs() {
+  return {
+    curriculumAutoCheckbox,
+    presetSelect,
+    curriculumPhaseLabel,
+    curriculumPhase,
+    curriculumSelectA,
+    curriculumSelectB
+  };
 }
 
 function handleBrainImport(parsed) {
@@ -216,10 +137,10 @@ function handleBrainImport(parsed) {
       );
       return;
     }
-    applyNnTopologyToUi(embeddedTopo);
+    applyNnTopologyToUi(embeddedTopo, nnUiRefs());
   }
 
-  let topoCheck = normalizeNnTopology(embeddedTopo || buildNnTopologyFromUi());
+  let topoCheck = normalizeNnTopology(embeddedTopo || buildNnTopologyFromUi(nnUiRefs()));
   if (genes.length !== expectedGeneCount(topoCheck)) {
     alert(
       'Nombre de gènes incompatible avec la topologie (' +
@@ -232,7 +153,12 @@ function handleBrainImport(parsed) {
   }
 
   if (embeddedConfig) {
-    if (!gameConfigsEqual(embeddedConfig, getCircuitConfigForExport())) {
+    if (
+      !gameConfigsEqual(
+        embeddedConfig,
+        getCircuitConfigForExport(currentGameConfig, presetSelect.value, customGameConfig, gameConfigApi)
+      )
+    ) {
       if (confirm('Ce cerveau a été enregistré avec un autre circuit. Appliquer le circuit embarqué ?')) {
         customGameConfig = cloneGameConfig(embeddedConfig);
         presetSelect.value = 'custom';
@@ -367,16 +293,18 @@ function initSimulation() {
   curriculumPhase = 'A';
 
   if (curriculumAutoCheckbox && curriculumAutoCheckbox.checked) {
-    currentGameConfig = cloneGameConfig(getCurriculumConfigForPhase('A'));
+    currentGameConfig = cloneGameConfig(
+      getCurriculumConfigForPhase('A', curriculumSelectA.value, curriculumSelectB.value, getBuiltinPreset)
+    );
   } else {
-    currentGameConfig = cloneGameConfig(getActiveGameConfig());
+    currentGameConfig = cloneGameConfig(getActiveGameConfig(presetSelect.value, customGameConfig, gameConfigApi));
   }
 
   if (obsCopy.length > 0) {
     currentGameConfig.obstacles = obsCopy;
   }
 
-  updateCurriculumUi();
+  updateCurriculumUi(curriculumUiRefs());
 
   if (popStopThreshold) {
     popStopThreshold.max = String(currentGameConfig.lifetime);
@@ -388,14 +316,14 @@ function initSimulation() {
     }
   }
 
-  nnTopology = buildNnTopologyFromUi();
+  nnTopology = buildNnTopologyFromUi(nnUiRefs());
 
   let popSize = parseInt(popSlider.value);
   let mutationRate = parseFloat(mutationSlider.value);
 
   population = new Population(popSize, nnTopology, mutationRate, currentGameConfig);
 
-  updateTournamentCircuitHint();
+  updateTournamentCircuitHint(currentGameConfig);
 }
 
 function draw() {
@@ -556,7 +484,9 @@ function draw() {
                 return { x: o.x, y: o.y, w: o.w, h: o.h };
               })
             : []);
-          currentGameConfig = cloneGameConfig(getCurriculumConfigForPhase('B'));
+          currentGameConfig = cloneGameConfig(
+            getCurriculumConfigForPhase('B', curriculumSelectA.value, curriculumSelectB.value, getBuiltinPreset)
+          );
           if (obsKeep.length > 0) currentGameConfig.obstacles = obsKeep;
           population.gameConfig = currentGameConfig;
           recordTime = 0;
@@ -569,7 +499,7 @@ function draw() {
               popStopThresholdVal.innerText = String(cap);
             }
           }
-          updateCurriculumUi();
+          updateCurriculumUi(curriculumUiRefs());
         }
       }
       population.evolve();
@@ -585,22 +515,8 @@ function draw() {
   recordFramesSpan.innerText = recordTime;
 }
 
-function getBestDNA() {
-  if (!population) return null;
-  let paddles = [];
-  for (let m of population.matches) {
-    paddles.push(m.leftPaddle);
-    paddles.push(m.rightPaddle);
-  }
-  let best = paddles[0];
-  for (let p of paddles) {
-    if (p.fitness > best.fitness) best = p;
-  }
-  return best.dna;
-}
-
 function exportPresetFile() {
-  let c = getCircuitConfigForExport();
+  let c = getCircuitConfigForExport(currentGameConfig, presetSelect.value, customGameConfig, gameConfigApi);
   let payload = { kind: 'pong_neuro_preset', formatVersion: 1, ...c };
   saveJSON(payload, 'pong_circuit.json');
 }
@@ -630,7 +546,7 @@ function importPresetFile(event) {
 }
 
 function exportModel() {
-  let dna = loadedDNA || getBestDNA();
+  let dna = loadedDNA || getBestDNA(population);
   if (!dna) {
     alert('Aucun cerveau à exporter !');
     return;
@@ -638,15 +554,15 @@ function exportModel() {
   let payload = {
     kind: 'pong_neuro_brain',
     formatVersion: 1,
-    gameConfig: getCircuitConfigForExport(),
-    nnTopology: buildNnTopologyFromUi(),
+    gameConfig: getCircuitConfigForExport(currentGameConfig, presetSelect.value, customGameConfig, gameConfigApi),
+    nnTopology: buildNnTopologyFromUi(nnUiRefs()),
     genes: dna.genes
   };
   saveJSON(payload, 'best_pong_brain.json');
 }
 
 function exportBundleFile() {
-  let dna = loadedDNA || getBestDNA();
+  let dna = loadedDNA || getBestDNA(population);
   if (!dna) {
     alert('Aucun cerveau à exporter !');
     return;
@@ -654,8 +570,8 @@ function exportBundleFile() {
   let payload = {
     kind: 'pong_neuro_bundle',
     formatVersion: 1,
-    gameConfig: getCircuitConfigForExport(),
-    nnTopology: buildNnTopologyFromUi(),
+    gameConfig: getCircuitConfigForExport(currentGameConfig, presetSelect.value, customGameConfig, gameConfigApi),
+    nnTopology: buildNnTopologyFromUi(nnUiRefs()),
     genes: dna.genes
   };
   saveJSON(payload, 'pong_circuit_et_cerveau.json');
@@ -697,10 +613,10 @@ function toggleDuelMode() {
     victoryMsg.style.display = 'block';
     victoryMsg.innerText = 'MODE DUEL - Chargement caméra...';
 
-    nnTopology = buildNnTopologyFromUi();
+    nnTopology = buildNnTopologyFromUi(nnUiRefs());
     currentGameConfig = cloneGameConfig(currentGameConfig);
 
-    let dnaToUse = loadedDNA || getBestDNA();
+    let dnaToUse = loadedDNA || getBestDNA(population);
     if (!dnaToUse) dnaToUse = new DNA();
 
     duelMatch = new Match(nnTopology, dnaToUse, null, currentGameConfig);
@@ -811,71 +727,9 @@ function keyPressed() {
   }
 }
 
-function updateTournamentCircuitHint() {
-  let el = document.getElementById('tournament-circuit-hint');
-  if (!el || !currentGameConfig) return;
-  el.textContent =
-    (currentGameConfig.presetId || 'circuit') +
-    ' — v' +
-    currentGameConfig.ballSpeed +
-    ' / raq.' +
-    currentGameConfig.paddleHeight;
-}
-
-function parseTournamentBrainEntry(parsed, fileName) {
-  if (Array.isArray(parsed)) {
-    let topo = normalizeNnTopology(buildNnTopologyFromUi());
-    if (parsed.length !== expectedGeneCount(topo)) {
-      alert(
-        fileName +
-          ' : nombre de gènes incompatible avec la topologie actuelle des curseurs (' +
-          parsed.length +
-          ' vs ' +
-          expectedGeneCount(topo) +
-          ').'
-      );
-      return null;
-    }
-    return { name: fileName, genes: parsed, nnTopology: null };
-  }
-  if (!parsed || !Array.isArray(parsed.genes)) {
-    alert(fileName + ' : fichier non reconnu (attendu : enveloppe avec "genes" ou tableau de gènes).');
-    return null;
-  }
-  let embedded = parsed.nnTopology || null;
-  let topo = normalizeNnTopology(embedded || buildNnTopologyFromUi());
-  if (topo === null) {
-    alert(fileName + ' : topologie invalide (couches non uniformes).');
-    return null;
-  }
-  if (parsed.genes.length !== expectedGeneCount(topo)) {
-    alert(
-      fileName +
-        ' : gènes/topo incompatible (' +
-        parsed.genes.length +
-        ' vs ' +
-        expectedGeneCount(topo) +
-        ').'
-    );
-    return null;
-  }
-  return { name: fileName, genes: parsed.genes, nnTopology: embedded };
-}
-
-function renderTournamentList() {
-  let ul = document.getElementById('tournament-list');
-  if (!ul) return;
-  ul.innerHTML = '';
-  for (let e of tournamentEntries) {
-    let li = document.createElement('li');
-    li.textContent = e.name + (e.nnTopology ? ' (topo fichier)' : ' (topo UI)');
-    ul.appendChild(li);
-  }
-}
-
 function clearTournamentList() {
   tournamentEntries = [];
-  renderTournamentList();
+  renderTournamentList(tournamentEntries);
   let div = document.getElementById('tournament-results');
   if (div) div.innerHTML = '';
 }
@@ -901,125 +755,19 @@ function onTournamentFilesSelected(ev) {
       for (let row of rows) {
         try {
           let parsed = JSON.parse(row.text);
-          let entry = parseTournamentBrainEntry(parsed, row.name);
+          let rawTopo = buildNnTopologyFromUi(nnUiRefs());
+          let uiGeneCount = expectedGeneCount(normalizeNnTopology(rawTopo));
+          let entry = parseTournamentBrainEntry(parsed, row.name, rawTopo, uiGeneCount);
           if (entry) tournamentEntries.push(entry);
         } catch (err) {
           alert(row.name + ' : ' + err.message);
         }
       }
-      renderTournamentList();
+      renderTournamentList(tournamentEntries);
     })
     .catch(function () {
       alert('Erreur de lecture de fichier.');
     });
-}
-
-function simulateOneTournamentEpisode(nnTopology, dna, gameConfig) {
-  let m = new Match(nnTopology, dna, null, gameConfig, { rightBaselineTrack: true });
-  let cap = gameConfig.lifetime + 800;
-  let steps = 0;
-  while (m.alive && steps < cap) {
-    m.update();
-    steps++;
-  }
-  return {
-    frames: m.framesSurvived,
-    leftScore: m.leftPaddle.score
-  };
-}
-
-function runTournamentSimulation(entries, gameConfig, episodesPerBrain) {
-  let results = [];
-  let idx = 0;
-  for (let entry of entries) {
-    let topo = entry.nnTopology
-      ? normalizeNnTopology(entry.nnTopology)
-      : normalizeNnTopology(buildNnTopologyFromUi());
-    if (topo === null) {
-      results.push({ name: entry.name, error: 'Topologie invalide' });
-      idx++;
-      continue;
-    }
-    if (entry.genes.length !== expectedGeneCount(topo)) {
-      results.push({ name: entry.name, error: 'Taille ADN' });
-      idx++;
-      continue;
-    }
-    let dna = new DNA(entry.genes);
-    let totalFrames = 0;
-    let totalScore = 0;
-    for (let e = 0; e < episodesPerBrain; e++) {
-      randomSeed(9000 + idx * 7919 + e * 131);
-      let r = simulateOneTournamentEpisode(topo, dna, gameConfig);
-      totalFrames += r.frames;
-      totalScore += r.leftScore;
-    }
-    randomSeed(floor(millis()) % 100000000);
-    results.push({
-      name: entry.name,
-      avgFrames: totalFrames / episodesPerBrain,
-      avgScore: totalScore / episodesPerBrain
-    });
-    idx++;
-  }
-  results.sort(function (a, b) {
-    if (a.error && !b.error) return 1;
-    if (!a.error && b.error) return -1;
-    if (a.error && b.error) return 0;
-    if (b.avgFrames !== a.avgFrames) return b.avgFrames - a.avgFrames;
-    return b.avgScore - a.avgScore;
-  });
-  let rank = 1;
-  for (let i = 0; i < results.length; i++) {
-    if (!results[i].error) {
-      results[i].rank = rank;
-      rank++;
-    }
-  }
-  return results;
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function renderTournamentResults(results) {
-  let div = document.getElementById('tournament-results');
-  if (!div) return;
-  let rows =
-    '<table style="width:100%;border-collapse:collapse;color:#eee;"><thead><tr style="background:#444;">' +
-    '<th style="padding:8px;text-align:left;">#</th>' +
-    '<th style="padding:8px;text-align:left;">Fichier</th>' +
-    '<th style="padding:8px;text-align:right;">Frames moy.</th>' +
-    '<th style="padding:8px;text-align:right;">Touches moy.</th>' +
-    '<th style="padding:8px;text-align:left;">Note</th></tr></thead><tbody>';
-  for (let r of results) {
-    if (r.error) {
-      rows +=
-        '<tr style="border-top:1px solid #555;"><td>—</td><td>' +
-        escapeHtml(r.name) +
-        '</td><td colspan="3">' +
-        escapeHtml(r.error) +
-        '</td></tr>';
-    } else {
-      rows +=
-        '<tr style="border-top:1px solid #555;"><td>' +
-        r.rank +
-        '</td><td>' +
-        escapeHtml(r.name) +
-        '</td><td style="text-align:right;">' +
-        r.avgFrames.toFixed(1) +
-        '</td><td style="text-align:right;">' +
-        r.avgScore.toFixed(2) +
-        '</td><td></td></tr>';
-    }
-  }
-  rows += '</tbody></table>';
-  div.innerHTML = rows;
 }
 
 function runTournamentClick() {
@@ -1032,13 +780,27 @@ function runTournamentClick() {
   if (!Number.isFinite(episodes) || episodes < 1) episodes = 3;
   if (episodes > 30) episodes = 30;
 
-  let gc = cloneGameConfig(getCircuitConfigForExport());
+  let gc = cloneGameConfig(
+    getCircuitConfigForExport(currentGameConfig, presetSelect.value, customGameConfig, gameConfigApi)
+  );
   noLoop();
   try {
-    let results = runTournamentSimulation(tournamentEntries, gc, episodes);
+    let results = runTournamentSimulation(tournamentEntries, gc, episodes, nnUiRefs());
     renderTournamentResults(results);
   } catch (err) {
     alert('Tournoi : ' + err.message);
   }
   loop();
 }
+
+/* p5 mode global : les callbacks doivent être sur window pour être découverts par la librairie. */
+window.setup = setup;
+window.draw = draw;
+window.mousePressed = mousePressed;
+window.keyPressed = keyPressed;
+
+/* p5 mode global : les callbacks doivent être sur window pour être découverts par la librairie. */
+window.setup = setup;
+window.draw = draw;
+window.mousePressed = mousePressed;
+window.keyPressed = keyPressed;

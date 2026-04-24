@@ -62,7 +62,7 @@ function sanitizeObstacles(arr) {
   return out;
 }
 
-function cloneGameConfig(base) {
+export function cloneGameConfig(base) {
   return {
     formatVersion: GAME_CONFIG_FORMAT_VERSION,
     ballSpeed: base.ballSpeed,
@@ -89,7 +89,7 @@ function mergeGameConfig(overrides) {
 }
 
 /** Valide un objet importé ; retourne null si aucun paramètre numérique valide. */
-function normalizeImportedGameConfig(raw) {
+export function normalizeImportedGameConfig(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const n = {};
   const nums = ['ballSpeed', 'ballRadius', 'paddleWidth', 'paddleHeight', 'paddleMoveSpeed', 'lifetime'];
@@ -108,7 +108,7 @@ function normalizeImportedGameConfig(raw) {
   });
 }
 
-function gameConfigsEqual(a, b) {
+export function gameConfigsEqual(a, b) {
   if (!a || !b) return false;
   const keys = ['ballSpeed', 'ballRadius', 'paddleWidth', 'paddleHeight', 'paddleMoveSpeed', 'lifetime'];
   for (const k of keys) {
@@ -117,7 +117,7 @@ function gameConfigsEqual(a, b) {
   return JSON.stringify(a.obstacles || []) === JSON.stringify(b.obstacles || []);
 }
 
-function getBuiltinPreset(kind) {
+export function getBuiltinPreset(kind) {
   const p = BUILTIN_PRESETS[kind];
   return p ? cloneGameConfig(p) : cloneGameConfig(BUILTIN_PRESETS.medium);
 }
