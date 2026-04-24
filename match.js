@@ -21,8 +21,11 @@ class Match {
     if (this.ball.x - this.ball.r < this.leftPaddle.x + this.leftPaddle.w / 2 &&
         this.ball.y > this.leftPaddle.y - this.leftPaddle.h / 2 &&
         this.ball.y < this.leftPaddle.y + this.leftPaddle.h / 2) {
+      let diff = this.ball.y - this.leftPaddle.y;
+      let angle = map(diff, -this.leftPaddle.h / 2, this.leftPaddle.h / 2, -PI / 4, PI / 4);
+      this.ball.vx = this.ball.speed * cos(angle);
+      this.ball.vy = this.ball.speed * sin(angle);
       
-      this.ball.vx *= -1.05;
       this.ball.x = this.leftPaddle.x + this.leftPaddle.w / 2 + this.ball.r;
       this.leftPaddle.score++;
     }
@@ -31,8 +34,11 @@ class Match {
     if (this.ball.x + this.ball.r > this.rightPaddle.x - this.rightPaddle.w / 2 &&
         this.ball.y > this.rightPaddle.y - this.rightPaddle.h / 2 &&
         this.ball.y < this.rightPaddle.y + this.rightPaddle.h / 2) {
+      let diff = this.ball.y - this.rightPaddle.y;
+      let angle = map(diff, -this.rightPaddle.h / 2, this.rightPaddle.h / 2, -PI / 4, PI / 4);
+      this.ball.vx = -this.ball.speed * cos(angle);
+      this.ball.vy = this.ball.speed * sin(angle);
       
-      this.ball.vx *= -1.05;
       this.ball.x = this.rightPaddle.x - this.rightPaddle.w / 2 - this.ball.r;
       this.rightPaddle.score++;
     }

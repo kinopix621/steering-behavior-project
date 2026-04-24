@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>Pong - Réseau de Neurones Vanilla</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
   <link rel="stylesheet" type="text/css" href="style.css" />
 </head>
 <body>
@@ -44,7 +45,13 @@
       <span id="mutation-val">0.05</span>
     </div>
 
-    <button id="reset-btn">Lancer l'Entraînement</button>
+    <div class="control-group">
+      <button id="reset-btn">Relancer l'Entraînement</button>
+      <button id="export-btn">Exporter le Modèle</button>
+      <button id="import-btn" onclick="document.getElementById('file-input').click()">Importer un Modèle</button>
+      <input type="file" id="file-input" style="display:none;" accept=".json">
+      <button id="duel-btn" style="background-color: #ff5e5e;">Lancer le Mode Duel (Webcam)</button>
+    </div>
   </div>
   
   <div id="canvas-container"></div>

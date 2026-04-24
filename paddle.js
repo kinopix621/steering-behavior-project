@@ -27,14 +27,25 @@ class Paddle {
 
   // Voici les capteurs demandés (position balle, position paddle, etc.)
   predict(ball) {
+    if (this.isHuman) return;
+
     let inputs = [];
-    inputs[0] = ball.y / height;
+    // 1. Distance Y relative (Balle - Raquette)
+    inputs[0] = (ball.y - this.y) / height; 
+    
+    // 2. Position Y absolue de la raquette (pour éviter de sortir de l'écran)
     inputs[1] = this.y / height;
-    inputs[2] = ball.x / width;
+    
+    // 3. Distance X absolue jusqu'à la balle
+    inputs[2] = abs(this.x - ball.x) / width;
     
     // Si on a configuré 5 inputs au lieu de 3
     if (this.brain.input_nodes === 5) {
-      inputs[3] = (ball.vx + 10) / 20;
+      // 4. Vitesse X relative (positive = la balle s'approche de la raquette)
+      let relativeVx = this.isLeft ? ball.vx : -ball.vx;
+      inputs[3] = (relativeVx + 10) / 20;
+      
+      // 5. Vitesse Y (normalisée)
       inputs[4] = (ball.vy + 10) / 20;
     }
 
