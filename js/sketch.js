@@ -353,6 +353,10 @@ function initSimulation() {
 
   duelMode = false;
   duelMatch = null;
+  if (handPose && typeof handPose.detectStop === 'function') {
+    handPose.detectStop();
+  }
+  hands = [];
   if (duelBtn) duelBtn.innerText = 'Lancer le Mode Duel (Webcam)';
   recordTime = 0;
   victoryMsg.style.display = 'none';
@@ -673,10 +677,23 @@ function importModel(event) {
   reader.readAsText(file);
 }
 
+function startDuelHandTracking() {
+  if (!video || !handPose) return;
+  handPose.detectStart(video, (results) => {
+    hands = results;
+  });
+}
+
 function toggleDuelMode() {
   duelMode = !duelMode;
   if (duelMode) {
+    if (typeof ml5 === 'undefined' || typeof ml5.handPose !== 'function') {
+      duelMode = false;
+      alert('ml5.js est introuvable : vérifiez la connexion réseau et le chargement du script.');
+      return;
+    }
     duelBtn.innerText = 'Arrêter le Mode Duel';
+    if (duelBtn) duelBtn.blur();
     victoryMsg.style.display = 'block';
     victoryMsg.innerText = 'MODE DUEL - Chargement caméra...';
 
@@ -697,17 +714,20 @@ function toggleDuelMode() {
       video = createCapture(VIDEO);
       video.size(320, 240);
       video.hide();
-      handPose = ml5.handPose(video, () => {
+      handPose = ml5.handPose({ flipHorizontal: true }, () => {
         victoryMsg.innerText = 'MODE DUEL - Bougez votre main (index) !';
-        handPose.detectStart(video, (results) => {
-          hands = results;
-        });
+        startDuelHandTracking();
       });
     } else {
       victoryMsg.innerText = 'MODE DUEL - Bougez votre main (index) !';
+      startDuelHandTracking();
     }
     loop();
   } else {
+    if (handPose && typeof handPose.detectStop === 'function') {
+      handPose.detectStop();
+    }
+    hands = [];
     duelBtn.innerText = 'Lancer le Mode Duel (Webcam)';
     initSimulation();
   }
@@ -771,7 +791,12 @@ function mousePressed() {
 }
 
 function keyPressed() {
-  if (duelMode && duelState === 'WAITING' && key === ' ') {
+  if (
+    duelMode &&
+    duelMatch &&
+    duelState === 'WAITING' &&
+    (key === ' ' || keyCode === 32)
+  ) {
     duelMatch.ball.reset();
     let base = duelMatch.gameConfig.ballSpeed * 2;
     duelMatch.ball.speed = base;
@@ -781,6 +806,8 @@ function keyPressed() {
       duelMatch.ball.vy = (duelMatch.ball.vy / m) * duelMatch.ball.speed;
     }
     duelState = 'PLAYING';
+    // Évite que Espace réactive un <button> encore focus (ex. « Mode duel ») → sortie du duel.
+    return false;
   }
 }
 
