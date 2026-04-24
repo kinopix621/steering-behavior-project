@@ -338,9 +338,21 @@ function draw() {
     drawObstaclesFromConfig(duelMatch.gameConfig);
     if (video) {
       push();
-      translate(164, 84);
+      translate(320, 0);
       scale(-1, 1);
       image(video, -160, 0, 160, 80);
+      
+      // Affichage du point rouge de tracking sur l'aperçu vidéo
+      if (hands.length > 0) {
+        let h = hands[0].index_finger_tip;
+        // Mapping des coordonnées de la vidéo (320x240) vers l'aperçu (160x80)
+        // Note: l'axe X est inversé par le scale(-1, 1) précédent
+        let dotX = map(h.x, 0, 320, -160, 0);
+        let dotY = map(h.y, 0, 240, 0, 80);
+        fill(255, 0, 0);
+        noStroke();
+        ellipse(dotX, dotY, 8, 8);
+      }
       pop();
       stroke(255, 80);
       noFill();
